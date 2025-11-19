@@ -7,6 +7,12 @@ import os
 import environ
 import dj_database_url
 
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://jury.algeria20.com",
+]
+
+
 # -------------------------------------------------
 # Paths / base dir
 # -------------------------------------------------
