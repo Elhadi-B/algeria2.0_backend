@@ -2,16 +2,16 @@ import csv
 import json
 import logging
 from decimal import Decimal
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse
 from django.db.models import Avg, Count, Q
 from django.db import transaction
 from rest_framework import viewsets, status, views
 from rest_framework.decorators import action, api_view, permission_classes, authentication_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.views.decorators.csrf import csrf_exempt
+from rest_framework.authentication import SessionAuthentication
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
 from django.utils.decorators import method_decorator
-from .authentication_session import CsrfExemptSessionAuthentication
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
@@ -40,7 +40,7 @@ class TeamViewSet(viewsets.ModelViewSet):
     queryset = Team.objects.all()
     serializer_class = TeamSerializer
     permission_classes = [IsAdminUser]
-    authentication_classes = [CsrfExemptSessionAuthentication]  # Custom session auth without CSRF
+    authentication_classes = [SessionAuthentication]
     
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -61,7 +61,7 @@ class CriterionViewSet(viewsets.ModelViewSet):
     """Admin viewset for managing evaluation criteria and weights"""
     queryset = Criterion.objects.all()
     serializer_class = CriterionSerializer
-    authentication_classes = [CsrfExemptSessionAuthentication]  # Custom session auth without CSRF
+    authentication_classes = [SessionAuthentication]
     
     def get_permissions(self):
         """Allow public read access, but require admin for write operations"""
@@ -117,7 +117,7 @@ class EvaluationViewSet(viewsets.ModelViewSet):
     queryset = Evaluation.objects.select_related('team', 'judge').all()
     serializer_class = EvaluationSerializer
     permission_classes = [IsAdminUser]
-    authentication_classes = [CsrfExemptSessionAuthentication]  # Custom session auth without CSRF
+    authentication_classes = [SessionAuthentication]
     
     def get_queryset(self):
         """Allow filtering by team_id or judge_id"""
@@ -191,7 +191,7 @@ class JudgeViewSet(viewsets.ModelViewSet):
     queryset = Judge.objects.all()
     serializer_class = JudgeSerializer
     permission_classes = [IsAdminUser]
-    authentication_classes = [CsrfExemptSessionAuthentication]  # Custom session auth without CSRF
+    authentication_classes = [SessionAuthentication]
     
     def get_serializer_class(self):
         if self.action == 'create':
@@ -231,7 +231,7 @@ class JudgeViewSet(viewsets.ModelViewSet):
     responses={201: JudgeSerializer}
 )
 @api_view(['POST'])
-@authentication_classes([CsrfExemptSessionAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAdminUser])
 def create_judge(request):
     """Create judge endpoint - returns token link"""
@@ -259,7 +259,7 @@ def create_judge(request):
     responses={200: {'description': 'Token regenerated successfully'}}
 )
 @api_view(['POST'])
-@authentication_classes([CsrfExemptSessionAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAdminUser])
 def regenerate_judge_token(request, judge_id):
     """Regenerate token for a judge"""
@@ -288,7 +288,7 @@ def regenerate_judge_token(request, judge_id):
     responses={200: {'description': 'Preview or import result'}}
 )
 @api_view(['POST'])
-@authentication_classes([CsrfExemptSessionAuthentication])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAdminUser])
 def upload_teams(request):
     """CSV/JSON import endpoint with preview - matches new CSV format"""
@@ -596,25 +596,18 @@ def export_pdf(request):
     })
 
 
-# Admin Login API endpoint
-@method_decorator(csrf_exempt, name='dispatch')
-@extend_schema(
-    tags=['Admin'],
-    summary='Admin login',
-    description='Login admin user with username and password. Returns session cookie.',
-    request={'application/json': {'type': 'object', 'properties': {'username': {'type': 'string'}, 'password': {'type': 'string'}}}},
-    responses={200: {'description': 'Login successful'}, 400: {'description': 'Invalid credentials'}}
-)
-@api_view(['GET'])
-@permission_classes([])
-@authentication_classes([])
-def get_csrf_token(request):
-    """Get CSRF token for use in subsequent requests"""
-    from django.middleware.csrf import get_token
-    return JsonResponse({'csrfToken': get_token(request)})
+@method_decorator(ensure_csrf_cookie, name='dispatch')
+class CSRFTokenView(views.APIView):
+    """Issue a CSRF cookie for API clients"""
+    permission_classes = []
+    authentication_classes = []
+
+    def get(self, request):
+        from django.middleware.csrf import get_token
+        return Response({'csrfToken': get_token(request)})
 
 
-@method_decorator(csrf_exempt, name='dispatch')
+@method_decorator(csrf_protect, name='dispatch')
 class AdminLoginView(views.APIView):
     """Admin login endpoint - alternative to Django admin login"""
     permission_classes = []

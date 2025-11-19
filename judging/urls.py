@@ -10,7 +10,7 @@ router.register(r'admin/evaluations', views.EvaluationViewSet, basename='evaluat
 
 urlpatterns = [
     # CSRF token endpoint
-    path('csrf/', views.get_csrf_token, name='get-csrf-token'),
+    path('security/csrf/', views.CSRFTokenView.as_view(), name='get-csrf-token'),
     
     # Admin endpoints
     path('admin/login/', views.AdminLoginView.as_view(), name='admin-login'),
