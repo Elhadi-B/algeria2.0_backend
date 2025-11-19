@@ -1,0 +1,223 @@
+{
+  "info": {
+    "name": "Pitch Judging API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Admin - Login",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "username",
+              "value": "admin",
+              "type": "text"
+            },
+            {
+              "key": "password",
+              "value": "password",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/admin/login/",
+          "host": ["{{base_url}}"],
+          "path": ["admin", "login", ""]
+        }
+      }
+    },
+    {
+      "name": "Admin - List Teams",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/admin/teams/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "admin", "teams", ""]
+        }
+      }
+    },
+    {
+      "name": "Admin - Upload Teams",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": "team_import_template.csv"
+            },
+            {
+              "key": "commit",
+              "value": "true",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/api/admin/upload-teams/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "admin", "upload-teams", ""]
+        }
+      }
+    },
+    {
+      "name": "Admin - Create Judge",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"organization\": \"Tech Corp\",\n  \"phone\": \"123-456-7890\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/admin/judges/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "admin", "judges", ""]
+        }
+      }
+    },
+    {
+      "name": "Admin - Get Ranking",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/admin/ranking/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "admin", "ranking", ""]
+        }
+      }
+    },
+    {
+      "name": "Admin - Export CSV",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/admin/export/csv/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "admin", "export", "csv", ""]
+        }
+      }
+    },
+    {
+      "name": "Judge - Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"{{judge_token}}\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/judge/login/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "judge", "login", ""]
+        }
+      }
+    },
+    {
+      "name": "Judge - List Teams",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Token {{judge_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/judge/teams/?token={{judge_token}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "judge", "teams", ""],
+          "query": [
+            {
+              "key": "token",
+              "value": "{{judge_token}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Judge - Get Evaluation",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Token {{judge_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/judge/evaluation/1/?token={{judge_token}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "judge", "evaluation", "1", ""],
+          "query": [
+            {
+              "key": "token",
+              "value": "{{judge_token}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Judge - Submit Score",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Token {{judge_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"team_id\": 1,\n  \"scores\": {\n    \"innovation\": {\"score\": 8, \"note\": \"Nice idea\"},\n    \"market\": {\"score\": 7},\n    \"feasibility\": {\"score\": 6},\n    \"team\": {\"score\": 8},\n    \"presentation\": {\"score\": 7}\n  },\n  \"general_comment\": \"Solid, minor execution concerns.\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/judge/submit-score/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "judge", "submit-score", ""]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "judge_token",
+      "value": "YOUR_JUDGE_TOKEN_HERE",
+      "type": "string"
+    }
+  ]
+}

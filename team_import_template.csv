@@ -1,0 +1,4 @@
+project_name,short_description,members,image_path,extra_info
+SolarCharge,"Portable solar charger for bikes","Alice;Bob;Eve","/uploads/teams/solarcharge.jpg","stage:prototype"
+HealthTracker,"AI-powered health monitoring app","John;Sarah","/uploads/teams/health.jpg",""
+EduTech,"Online learning platform for kids","Mike;Emma;David","/uploads/teams/edutech.png","{""stage"":""beta"",""funding"":""seed""}"
