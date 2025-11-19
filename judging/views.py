@@ -611,16 +611,10 @@ def export_pdf(request):
 def get_csrf_token(request):
     """Get CSRF token for use in subsequent requests"""
     from django.middleware.csrf import get_token
-    from django.views.decorators.csrf import ensure_csrf_cookie
-    
-    # Force Django to set the CSRF cookie
-    token = get_token(request)
-    response = JsonResponse({'csrfToken': token})
-    
-    # Ensure the cookie is set in the response
-    return response
+    return JsonResponse({'csrfToken': get_token(request)})
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class AdminLoginView(views.APIView):
     """Admin login endpoint - alternative to Django admin login"""
     permission_classes = []

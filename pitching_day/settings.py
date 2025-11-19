@@ -197,7 +197,11 @@ if cors_origins:
 else:
     CORS_ALLOWED_ORIGINS = [
         "https://jury.algeria20.com",
+        "https://www.jury.algeria20.com",
         "http://jury.algeria20.com",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+        "http://192.168.56.1:8080",
     ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -209,20 +213,17 @@ if DEBUG:
 
 CSRF_TRUSTED_ORIGINS = os.getenv(
     "CSRF_TRUSTED_ORIGINS",
-    "https://jury.algeria20.com,http://jury.algeria20.com",
+    "https://jury.algeria20.com,https://www.jury.algeria20.com,http://jury.algeria20.com,http://localhost:8080,http://127.0.0.1:8080,http://192.168.56.1:8080",
 ).split(",")
 
-# CSRF settings for production
 CSRF_COOKIE_SAMESITE = "Lax"
-CSRF_COOKIE_SECURE = not DEBUG  # True in production (HTTPS), False in development
-CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to read the cookie
+CSRF_COOKIE_SECURE = not DEBUG  # False for localhost (HTTP), True for production (HTTPS)
+CSRF_COOKIE_HTTPONLY = False
 CSRF_USE_SESSIONS = False
-CSRF_COOKIE_DOMAIN = None  # Let Django set it automatically
-CSRF_COOKIE_NAME = 'csrftoken'  # Default name
+CSRF_EXEMPT_VIEWS = []
 
-# Session cookie settings
 SESSION_COOKIE_SAMESITE = "Lax"
-SESSION_COOKIE_SECURE = not DEBUG  # True in production (HTTPS), False in development
+SESSION_COOKIE_SECURE = not DEBUG  # False for localhost (HTTP), True for production (HTTPS)
 SESSION_COOKIE_HTTPONLY = True
 
 # -------------------------------------------------
