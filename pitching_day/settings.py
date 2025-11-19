@@ -212,14 +212,17 @@ CSRF_TRUSTED_ORIGINS = os.getenv(
     "https://jury.algeria20.com,http://jury.algeria20.com",
 ).split(",")
 
+# CSRF settings for production
 CSRF_COOKIE_SAMESITE = "Lax"
-CSRF_COOKIE_SECURE = True
-CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SECURE = not DEBUG  # True in production (HTTPS), False in development
+CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to read the cookie
 CSRF_USE_SESSIONS = False
-CSRF_EXEMPT_VIEWS = []
+CSRF_COOKIE_DOMAIN = None  # Let Django set it automatically
+CSRF_COOKIE_NAME = 'csrftoken'  # Default name
 
+# Session cookie settings
 SESSION_COOKIE_SAMESITE = "Lax"
-SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = not DEBUG  # True in production (HTTPS), False in development
 SESSION_COOKIE_HTTPONLY = True
 
 # -------------------------------------------------
