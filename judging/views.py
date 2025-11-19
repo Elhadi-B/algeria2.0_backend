@@ -605,6 +605,15 @@ def export_pdf(request):
     request={'application/json': {'type': 'object', 'properties': {'username': {'type': 'string'}, 'password': {'type': 'string'}}}},
     responses={200: {'description': 'Login successful'}, 400: {'description': 'Invalid credentials'}}
 )
+@api_view(['GET'])
+@permission_classes([])
+@authentication_classes([])
+def get_csrf_token(request):
+    """Get CSRF token for use in subsequent requests"""
+    from django.middleware.csrf import get_token
+    return JsonResponse({'csrfToken': get_token(request)})
+
+
 class AdminLoginView(views.APIView):
     """Admin login endpoint - alternative to Django admin login"""
     permission_classes = []

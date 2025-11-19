@@ -9,6 +9,9 @@ router.register(r'admin/criteria', views.CriterionViewSet, basename='criterion')
 router.register(r'admin/evaluations', views.EvaluationViewSet, basename='evaluation')
 
 urlpatterns = [
+    # CSRF token endpoint
+    path('csrf/', views.get_csrf_token, name='get-csrf-token'),
+    
     # Admin endpoints
     path('admin/login/', views.AdminLoginView.as_view(), name='admin-login'),
     path('admin/create-judge/', views.create_judge, name='create-judge'),
