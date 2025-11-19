@@ -8,6 +8,12 @@ import environ
 import dj_database_url
 
 
+
+# After the AUTHENTICATION section is a good spot.
+LOGIN_URL = "/admin/login/"
+LOGIN_REDIRECT_URL = "/admin"        # or "/admin/dashboard" to match your React route
+LOGOUT_REDIRECT_URL = "/admin/login"
+
 CSRF_TRUSTED_ORIGINS = [
     "https://jury.algeria20.com",
 ]
