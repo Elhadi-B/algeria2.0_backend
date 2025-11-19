@@ -20,10 +20,12 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+from judging.views import CSRFTokenView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("judging.urls")),
+    path("security/csrf/", CSRFTokenView.as_view(), name="root-csrf-token"),
     
     # API Documentation
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
