@@ -7,13 +7,68 @@ class CriterionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Criterion
         fields = ['id', 'key', 'name', 'description', 'weight', 'order', 'created_at', 'updated_at']
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'key']  # key is now auto-generated
     
     def validate_weight(self, value):
         """Validate that weight is between 0 and 1"""
         if value < 0 or value > 1:
             raise serializers.ValidationError("Weight must be between 0 and 1")
         return value
+    
+    def validate_order(self, value):
+        """Validate that order is unique"""
+        # Check if another criterion has the same order
+        queryset = Criterion.objects.filter(order=value)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError(f"Un critère avec l'ordre {value} existe déjà.")
+        return value
+    
+    def validate(self, data):
+        """Validate that sum of weights doesn't exceed 1"""
+        instance = getattr(self, 'instance', None)
+        new_weight = float(data.get('weight', instance.weight if instance else 0))
+        
+        # Get all other criteria weights
+        if instance:
+            # Update: exclude current instance
+            other_criteria = Criterion.objects.exclude(pk=instance.pk)
+            total_weight = sum(float(c.weight) for c in other_criteria)
+            # For update, subtract the old weight and add new
+            old_weight = float(instance.weight)
+            new_total = total_weight - old_weight + new_weight
+        else:
+            # Create: include all existing criteria
+            other_criteria = Criterion.objects.all()
+            total_weight = sum(float(c.weight) for c in other_criteria)
+            new_total = total_weight + new_weight
+        
+        if new_total > 1:
+            raise serializers.ValidationError({
+                'weight': f"La somme des poids ne peut pas dépasser 1.0. Poids total avec ce critère: {new_total:.2f}"
+            })
+        
+        return data
+    
+    def create(self, validated_data):
+        """Create criterion with auto-generated key"""
+        # Auto-generate key from name (lowercase, replace spaces with underscores)
+        name = validated_data.get('name', '')
+        key = name.lower().replace(' ', '_').replace('&', '').replace('-', '_')
+        # Remove special characters
+        key = ''.join(c for c in key if c.isalnum() or c == '_')
+        validated_data['key'] = key
+        return super().create(validated_data)
+    
+    def update(self, instance, validated_data):
+        """Update criterion - regenerate key if name changes"""
+        if 'name' in validated_data and validated_data['name'] != instance.name:
+            name = validated_data['name']
+            key = name.lower().replace(' ', '_').replace('&', '').replace('-', '_')
+            key = ''.join(c for c in key if c.isalnum() or c == '_')
+            validated_data['key'] = key
+        return super().update(instance, validated_data)
 
 
 class TeamSerializer(serializers.ModelSerializer):
@@ -31,6 +86,16 @@ class TeamSerializer(serializers.ModelSerializer):
     
     def get_members_list(self, obj):
         return obj.members_list
+    
+    def validate_project_name(self, value):
+        """Validate that project_name is unique"""
+        instance = getattr(self, 'instance', None)
+        queryset = Team.objects.filter(project_name=value)
+        if instance:
+            queryset = queryset.exclude(pk=instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError(f"Une équipe avec le nom de projet '{value}' existe déjà.")
+        return value
 
 
 class TeamBasicSerializer(serializers.ModelSerializer):

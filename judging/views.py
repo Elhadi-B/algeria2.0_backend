@@ -383,8 +383,16 @@ def upload_teams(request):
         if commit and not errors:
             created = []
             for team_data in rows:
-                team = Team.objects.create(**team_data)
-                created.append({'id': team.id, 'project_name': team.project_name})
+                project_name = team_data.get('project_name', '')
+                # Check if team with this project_name already exists
+                if Team.objects.filter(project_name=project_name).exists():
+                    errors.append(f"Équipe avec le nom de projet '{project_name}' existe déjà. Ignoré.")
+                    continue
+                try:
+                    team = Team.objects.create(**team_data)
+                    created.append({'id': team.id, 'project_name': team.project_name})
+                except Exception as e:
+                    errors.append(f"Erreur lors de la création de l'équipe '{project_name}': {str(e)}")
             
             return Response({
                 'message': f'Successfully imported {len(created)} teams',

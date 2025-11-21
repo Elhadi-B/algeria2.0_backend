@@ -23,18 +23,21 @@ class Event(models.Model):
 class Criterion(models.Model):
     """Fixed criteria for judging with weights"""
     id = models.AutoField(primary_key=True)
-    key = models.CharField(max_length=100, unique=True, help_text="Unique identifier (e.g., innovation, feasibility)")
+    key = models.CharField(max_length=100, unique=True, blank=True, help_text="Auto-generated unique identifier (e.g., innovation, feasibility)")
     name = models.CharField(max_length=255)
     description = models.TextField(default="", blank=True, help_text="Description of what judges should evaluate")
     weight = models.DecimalField(max_digits=5, decimal_places=2, 
                                 validators=[MinValueValidator(0), MaxValueValidator(1)],
                                 help_text="Weight should be between 0 and 1")
-    order = models.IntegerField(default=0, help_text="Display order in evaluation form")
+    order = models.IntegerField(default=0, unique=True, help_text="Display order in evaluation form - must be unique")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['order', 'name']
+        constraints = [
+            models.UniqueConstraint(fields=['order'], name='unique_criterion_order')
+        ]
 
     def __str__(self):
         return f"{self.name} (weight: {self.weight})"
@@ -43,13 +46,13 @@ class Criterion(models.Model):
 class Team(models.Model):
     """Team model for pitch contestants"""
     id = models.AutoField(primary_key=True)
-    project_name = models.CharField(max_length=255)
+    project_name = models.CharField(max_length=255, unique=True)
     team_leader_name = models.CharField(max_length=255, blank=True)
     team_leader_year = models.CharField(max_length=50, blank=True, help_text="Year of study (e.g., '3rd year')")
     team_leader_email = models.EmailField(blank=True)
     team_leader_phone = models.CharField(max_length=20, blank=True)
     project_domain = models.CharField(max_length=255, blank=True, help_text="Project domain (e.g., 'Agriculture', 'Healthcare')")
-    short_description = models.TextField(help_text="Project summary")
+    short_description = models.TextField(blank=False, help_text="Project summary - no length limit")
     members = models.TextField(help_text="Team members - semicolon-separated or JSON string")
     extra_info = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -57,6 +60,9 @@ class Team(models.Model):
 
     class Meta:
         ordering = ['project_name']
+        constraints = [
+            models.UniqueConstraint(fields=['project_name'], name='unique_project_name')
+        ]
 
     def __str__(self):
         return self.project_name
