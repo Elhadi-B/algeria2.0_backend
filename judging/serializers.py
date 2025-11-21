@@ -72,42 +72,21 @@ class CriterionSerializer(serializers.ModelSerializer):
 
 
 class TeamSerializer(serializers.ModelSerializer):
-    members_list = serializers.SerializerMethodField()
-    
     class Meta:
         model = Team
-        fields = [
-            'id', 'project_name',
-            'team_leader_name', 'team_leader_year', 'team_leader_email', 'team_leader_phone', 'project_domain',
-            'short_description', 'members', 'members_list', 'extra_info',
-            'created_at', 'updated_at'
-        ]
-        read_only_fields = ['created_at', 'updated_at']
-    
-    def get_members_list(self, obj):
-        return obj.members_list
-    
-    def validate_project_name(self, value):
-        """Validate that project_name is unique"""
-        instance = getattr(self, 'instance', None)
-        queryset = Team.objects.filter(project_name=value)
-        if instance:
-            queryset = queryset.exclude(pk=instance.pk)
-        if queryset.exists():
-            raise serializers.ValidationError(f"Une équipe avec le nom de projet '{value}' existe déjà.")
-        return value
+        fields = ['num_equipe', 'nom_equipe']
+        extra_kwargs = {
+            'num_equipe': {'required': True},
+            'nom_equipe': {'required': True},
+        }
 
 
 class TeamBasicSerializer(serializers.ModelSerializer):
     """Lightweight serializer for judge endpoints"""
-    
+
     class Meta:
         model = Team
-        fields = [
-            'id', 'project_name',
-            'team_leader_name', 'team_leader_year', 'team_leader_email', 'team_leader_phone', 'project_domain',
-            'short_description'
-        ]
+        fields = ['num_equipe', 'nom_equipe']
 
 
 class JudgeSerializer(serializers.ModelSerializer):
@@ -150,7 +129,7 @@ class EvaluationSerializer(serializers.ModelSerializer):
 
 class ScoreSubmitSerializer(serializers.Serializer):
     """Serializer for submitting scores"""
-    team_id = serializers.IntegerField()
+    team_id = serializers.CharField()
     scores = serializers.DictField(
         child=serializers.DictField(
             child=serializers.CharField(allow_blank=True)
@@ -189,8 +168,8 @@ class ScoreSubmitSerializer(serializers.Serializer):
 
 class RankingSerializer(serializers.Serializer):
     """Serializer for ranking results"""
-    team_id = serializers.IntegerField()
-    project_name = serializers.CharField()
+    num_equipe = serializers.CharField()
+    nom_equipe = serializers.CharField()
     average_score = serializers.DecimalField(max_digits=6, decimal_places=2)
     total_evaluations = serializers.IntegerField()
     criterion_breakdown = serializers.DictField()

@@ -18,10 +18,8 @@ class CriterionAdmin(admin.ModelAdmin):
 
 @admin.register(Team)
 class TeamAdmin(admin.ModelAdmin):
-    list_display = ['project_name', 'short_description', 'created_at']
-    search_fields = ['project_name', 'short_description']
-    list_filter = ['created_at']
-    readonly_fields = ['created_at', 'updated_at']
+    list_display = ['num_equipe', 'nom_equipe']
+    search_fields = ['num_equipe', 'nom_equipe']
 
 
 @admin.register(Judge)
@@ -41,5 +39,5 @@ class JudgeAdmin(admin.ModelAdmin):
 class EvaluationAdmin(admin.ModelAdmin):
     list_display = ['team', 'judge', 'total', 'updated_at']
     list_filter = ['updated_at', 'judge']
-    search_fields = ['team__project_name', 'judge__name']
+    search_fields = ['team__nom_equipe', 'judge__name']
     readonly_fields = ['total', 'updated_at']

@@ -115,8 +115,8 @@ class RankingConsumer(AsyncWebsocketConsumer):
                     }
             
             rankings.append({
-                'team_id': team.id,
-                'project_name': team.project_name,
+                'num_equipe': team.num_equipe,
+                'nom_equipe': team.nom_equipe,
                 'average_score': str(round(avg_score, 2)),
                 'total_evaluations': evaluations.count(),
                 'criterion_breakdown': criterion_breakdown

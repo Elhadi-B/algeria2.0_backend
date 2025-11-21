@@ -44,40 +44,15 @@ class Criterion(models.Model):
 
 
 class Team(models.Model):
-    """Team model for pitch contestants"""
-    id = models.AutoField(primary_key=True)
-    project_name = models.CharField(max_length=255, unique=True)
-    team_leader_name = models.CharField(max_length=255, blank=True)
-    team_leader_year = models.CharField(max_length=50, blank=True, help_text="Year of study (e.g., '3rd year')")
-    team_leader_email = models.EmailField(blank=True)
-    team_leader_phone = models.CharField(max_length=20, blank=True)
-    project_domain = models.CharField(max_length=255, blank=True, help_text="Project domain (e.g., 'Agriculture', 'Healthcare')")
-    short_description = models.TextField(blank=False, help_text="Project summary - no length limit")
-    members = models.TextField(help_text="Team members - semicolon-separated or JSON string")
-    extra_info = models.JSONField(default=dict, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    """Team model limited to team number and name (user managed IDs)"""
+    num_equipe = models.CharField(max_length=50, primary_key=True)
+    nom_equipe = models.CharField(max_length=255)
 
     class Meta:
-        ordering = ['project_name']
-        constraints = [
-            models.UniqueConstraint(fields=['project_name'], name='unique_project_name')
-        ]
+        ordering = ['nom_equipe']
 
     def __str__(self):
-        return self.project_name
-
-    @property
-    def members_list(self):
-        """Parse members string into list"""
-        if not self.members:
-            return []
-        # Try JSON first, then semicolon-separated
-        import json
-        try:
-            return json.loads(self.members)
-        except:
-            return [m.strip() for m in self.members.split(';') if m.strip()]
+        return f"{self.num_equipe} - {self.nom_equipe}"
 
 
 class Judge(models.Model):
@@ -121,7 +96,7 @@ class Evaluation(models.Model):
         ordering = ['-total', '-updated_at']
 
     def __str__(self):
-        return f"{self.judge.name} -> {self.team.project_name}: {self.total}"
+        return f"{self.judge.name} -> {self.team.nom_equipe}: {self.total}"
 
     def calculate_total(self):
         """Calculate weighted total from scores and criteria weights"""

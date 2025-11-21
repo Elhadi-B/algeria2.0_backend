@@ -264,6 +264,8 @@ def create_judge(request):
 def regenerate_judge_token(request, judge_id):
     """Regenerate token for a judge"""
     try:
+        existing_nums = set(Team.objects.values_list('num_equipe', flat=True))
+        seen_file_nums = set()
         judge = Judge.objects.get(id=judge_id)
     except Judge.DoesNotExist:
         return Response({'error': 'Judge not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -300,6 +302,8 @@ def upload_teams(request):
     
     preview_rows = []
     errors = []
+    existing_nums = set(Team.objects.values_list('num_equipe', flat=True))
+    seen_file_nums = set()
     
     try:
         # Try CSV first
@@ -309,73 +313,48 @@ def upload_teams(request):
         rows = []
         for idx, row in enumerate(reader, start=2):  # Start at 2 (header is row 1)
             errors_row = []
-            
-            # Map CSV columns to model fields
-            # Handle column name variations (with/without spaces, case insensitive)
-            project_title = row.get('Project Title', '').strip()
-            if not project_title:
-                # Try alternative column names
-                project_title = row.get('project_title', '').strip() or row.get('ProjectTitle', '').strip()
-            
-            team_leader_name = row.get('Team Leader: Full Name', '').strip()
-            if not team_leader_name:
-                team_leader_name = row.get('Team Leader: Full Name', '').strip() or row.get('team_leader_full_name', '').strip()
-            
-            team_leader_year = row.get('Team Leader: Year of Study', '').strip()
-            if not team_leader_year:
-                team_leader_year = row.get('team_leader_year_of_study', '').strip()
-            
-            team_leader_email = row.get('Team Leader: Email address', '').strip()
-            if not team_leader_email:
-                team_leader_email = row.get('team_leader_email_address', '').strip()
-            
-            team_leader_phone = row.get('Team Leader: Phone Number', '').strip()
-            if not team_leader_phone:
-                team_leader_phone = row.get('team_leader_phone_number', '').strip()
-            
-            # Team members - handle the long column name
-            team_members_key = None
-            for key in row.keys():
-                if 'Team Members' in key or 'team_members' in key.lower():
-                    team_members_key = key
-                    break
-            team_members = row.get(team_members_key, '').strip() if team_members_key else ''
-            
-            project_domain = row.get('Project Domain', '').strip()
-            if not project_domain:
-                project_domain = row.get('project_domain', '').strip()
-            
-            project_summary_key = None
-            for key in row.keys():
-                if 'Project Summary' in key or 'project_summary' in key.lower():
-                    project_summary_key = key
-                    break
-            project_summary = row.get(project_summary_key, '').strip() if project_summary_key else ''
-            
-            # Validate required fields
-            if not project_title:
-                errors_row.append(f"Row {idx}: Missing Project Title")
-            
-            if not project_summary:
-                errors_row.append(f"Row {idx}: Missing Project Summary")
-            
+
+            # Extract team number (num_equipe)
+            num_keys = [key for key in row.keys() if key and 'num' in key.lower()]
+            num_equipe = ''
+            for key in num_keys or ['num_equipe', 'numero_equipe', 'team_number', 'id', 'team_id']:
+                if key in row and row[key] is not None:
+                    num_equipe = row[key].strip()
+                    if num_equipe:
+                        break
+
+            # Extract team name (nom_equipe)
+            name_keys = [key for key in row.keys() if key and ('nom' in key.lower() or 'name' in key.lower())]
+            nom_equipe = ''
+            for key in name_keys or ['nom_equipe', 'team_name']:
+                if key in row and row[key] is not None:
+                    nom_equipe = row[key].strip()
+                    if nom_equipe:
+                        break
+
+            if not num_equipe:
+                errors_row.append(f"Row {idx}: Missing num_equipe")
+            if not nom_equipe:
+                errors_row.append(f"Row {idx}: Missing nom_equipe")
+
             if errors_row:
                 errors.extend(errors_row)
                 continue
-            
-            # Build team data
+
+            if num_equipe in seen_file_nums:
+                # Skip duplicate entries within the same file without blocking the entire import
+                continue
+            seen_file_nums.add(num_equipe)
+
+            if num_equipe in existing_nums:
+                errors.append(f"Row {idx}: Le numéro '{num_equipe}' existe déjà dans la base de données.")
+                continue
+
             team_data = {
-                'project_name': project_title,
-                'team_leader_name': team_leader_name,
-                'team_leader_year': team_leader_year,
-                'team_leader_email': team_leader_email,
-                'team_leader_phone': team_leader_phone,
-                'project_domain': project_domain,
-                'short_description': project_summary,
-                'members': team_members,
-                'extra_info': {}
+                'num_equipe': num_equipe,
+                'nom_equipe': nom_equipe,
             }
-            
+
             preview_rows.append(team_data)
             if commit:
                 rows.append(team_data)
@@ -383,16 +362,15 @@ def upload_teams(request):
         if commit and not errors:
             created = []
             for team_data in rows:
-                project_name = team_data.get('project_name', '')
-                # Check if team with this project_name already exists
-                if Team.objects.filter(project_name=project_name).exists():
-                    errors.append(f"Équipe avec le nom de projet '{project_name}' existe déjà. Ignoré.")
+                num_equipe = team_data.get('num_equipe', '')
+                if Team.objects.filter(num_equipe=num_equipe).exists():
+                    errors.append(f"Équipe avec le numéro '{num_equipe}' existe déjà. Ignorée.")
                     continue
                 try:
                     team = Team.objects.create(**team_data)
-                    created.append({'id': team.id, 'project_name': team.project_name})
+                    created.append({'num_equipe': team.num_equipe, 'nom_equipe': team.nom_equipe})
                 except Exception as e:
-                    errors.append(f"Erreur lors de la création de l'équipe '{project_name}': {str(e)}")
+                    errors.append(f"Erreur lors de la création de l'équipe '{num_equipe}': {str(e)}")
             
             return Response({
                 'message': f'Successfully imported {len(created)} teams',
@@ -401,7 +379,7 @@ def upload_teams(request):
             })
         else:
             return Response({
-                'preview_rows': preview_rows[:10],  # Show first 10
+                'preview_rows': preview_rows,
                 'total_rows': len(preview_rows),
                 'errors': errors,
                 'commit': commit,
@@ -468,12 +446,11 @@ def admin_ranking(request):
                 }
         
         rankings.append({
-            'team_id': team.id,
-            'project_name': team.project_name,
+            'num_equipe': team.num_equipe,
+            'nom_equipe': team.nom_equipe,
             'average_score': round(Decimal(avg_score), 2),
             'total_evaluations': evaluations.count(),
             'criterion_breakdown': criterion_breakdown,
-            'image_url': None  # Images removed
         })
     
     # Sort by average score descending
@@ -509,7 +486,7 @@ def export_csv(request):
     max_judges = max([team.evaluations.count() for team in teams] + [0])
     
     # Build dynamic header
-    header = ['project_id', 'project_name', 'avg_score']
+    header = ['num_equipe', 'nom_equipe', 'avg_score']
     
     # Add columns for each judge (up to max_judges)
     for judge_num in range(1, max_judges + 1):
@@ -519,8 +496,6 @@ def export_csv(request):
             header.append(f'judge_{judge_num}_{criterion.name}_score')
         header.append(f'judge_{judge_num}_general_comment')
     
-    # Add team leader and members info
-    header.extend(['team_leader_name', 'team_leader_email', 'team_leader_phone', 'team_members'])
     writer.writerow(header)
     
     # Calculate average scores per team
@@ -528,7 +503,7 @@ def export_csv(request):
     team_averages = {}
     for team in teams:
         avg = Evaluation.objects.filter(team=team).aggregate(Avg('total'))['total__avg']
-        team_averages[team.id] = round(float(avg), 2) if avg else 0
+        team_averages[team.num_equipe] = round(float(avg), 2) if avg else 0
     
     # Write data rows - one per team
     for team in teams:
@@ -536,9 +511,9 @@ def export_csv(request):
         
         # Build row data
         row = [
-            team.id,
-            team.project_name,
-            team_averages.get(team.id, 0),
+            team.num_equipe,
+            team.nom_equipe,
+            team_averages.get(team.num_equipe, 0),
         ]
         
         # Add judge evaluations
@@ -574,14 +549,6 @@ def export_csv(request):
                 for _ in criteria:
                     row.append('')  # each criterion score
                 row.append('')  # general comment
-        
-        # Add team leader info and members
-        row.extend([
-            team.team_leader_name or '',
-            team.team_leader_email or '',
-            team.team_leader_phone or '',
-            team.members or ''
-        ])
         
         writer.writerow(row)
     
@@ -774,7 +741,7 @@ class SubmitScoreView(views.APIView):
         general_comment = serializer.validated_data.get('general_comment', '')
         
         try:
-            team = Team.objects.get(id=team_id)
+            team = Team.objects.get(pk=team_id)
         except Team.DoesNotExist:
             return Response({'error': 'Team not found'}, status=status.HTTP_404_NOT_FOUND)
         
@@ -802,14 +769,14 @@ class SubmitScoreView(views.APIView):
         channel_layer = get_channel_layer()
         logger.info(f"Channel layer: {channel_layer}")
         if channel_layer:
-            logger.info(f"Broadcasting WebSocket update for team {team.id}, judge {judge.id}")
+            logger.info(f"Broadcasting WebSocket update for team {team.num_equipe}, judge {judge.id}")
             try:
                 async_to_sync(channel_layer.group_send)(
                     'ranking_updates',
                     {
                         'type': 'ranking_updated',
                         'judge_id': judge.id,
-                        'team_id': team.id,
+                        'team_id': team.num_equipe,
                         'total': float(evaluation.total)
                     }
                 )
@@ -822,7 +789,7 @@ class SubmitScoreView(views.APIView):
         return Response({
             'message': 'Score submitted successfully',
             'evaluation': {
-                'team_id': team.id,
+                'team_id': team.num_equipe,
                 'total': evaluation.total,
                 'scores': evaluation.scores,
                 'general_comment': evaluation.general_comment
