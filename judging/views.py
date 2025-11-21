@@ -242,7 +242,7 @@ def create_judge(request):
     judge = serializer.save()
     
     base_url = request.build_absolute_uri('/').rstrip('/')
-    login_url = f"{base_url}/api/judge/login/?token={judge.token}"
+    login_url = f"{base_url}/judge/login?token={judge.token}"
     
     return Response({
         'judge': JudgeSerializer(judge, context={'request': request, 'show_token': True}).data,
@@ -270,7 +270,7 @@ def regenerate_judge_token(request, judge_id):
     
     new_token = judge.regenerate_token()
     base_url = request.build_absolute_uri('/').rstrip('/')
-    login_url = f"{base_url}/api/judge/login/?token={new_token}"
+    login_url = f"{base_url}/judge/login?token={new_token}"
     
     return Response({
         'judge_id': judge.id,
