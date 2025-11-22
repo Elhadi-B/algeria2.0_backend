@@ -17,13 +17,14 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "pitching_day.settings")
 
 django_asgi_app = get_asgi_application()
 
-from judging.consumers import RankingConsumer
+from judging.consumers import RankingConsumer, WinnersConsumer
 
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
     "websocket": AuthMiddlewareStack(
         URLRouter([
             path("ws/ranking/", RankingConsumer.as_asgi()),
+            path("ws/winners/", WinnersConsumer.as_asgi()),
         ])
     ),
 })

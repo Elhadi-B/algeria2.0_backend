@@ -173,6 +173,7 @@ class RankingSerializer(serializers.Serializer):
     average_score = serializers.DecimalField(max_digits=6, decimal_places=2)
     total_evaluations = serializers.IntegerField()
     criterion_breakdown = serializers.DictField()
+    rank = serializers.IntegerField(required=False)
 
 
 class JudgeLoginSerializer(serializers.Serializer):

@@ -304,6 +304,7 @@ def upload_teams(request):
     errors = []
     existing_nums = set(Team.objects.values_list('num_equipe', flat=True))
     seen_file_nums = set()
+    duplicate_count = 0
     
     try:
         # Try CSV first
@@ -343,11 +344,12 @@ def upload_teams(request):
 
             if num_equipe in seen_file_nums:
                 # Skip duplicate entries within the same file without blocking the entire import
+                duplicate_count += 1
                 continue
             seen_file_nums.add(num_equipe)
 
             if num_equipe in existing_nums:
-                errors.append(f"Row {idx}: Le numéro '{num_equipe}' existe déjà dans la base de données.")
+                duplicate_count += 1
                 continue
 
             team_data = {
@@ -359,12 +361,19 @@ def upload_teams(request):
             if commit:
                 rows.append(team_data)
         
-        if commit and not errors:
+        # Add duplicate summary if there are duplicates (as warning, not blocking error)
+        duplicate_warning = None
+        if duplicate_count > 0:
+            duplicate_warning = f"{duplicate_count} doublon(s) trouvé(s). Seule la première occurrence de chaque numéro sera ajoutée."
+        
+        # Only block on actual errors (missing fields), not duplicates
+        if commit:
             created = []
+            skipped = 0
             for team_data in rows:
                 num_equipe = team_data.get('num_equipe', '')
                 if Team.objects.filter(num_equipe=num_equipe).exists():
-                    errors.append(f"Équipe avec le numéro '{num_equipe}' existe déjà. Ignorée.")
+                    skipped += 1
                     continue
                 try:
                     team = Team.objects.create(**team_data)
@@ -372,19 +381,29 @@ def upload_teams(request):
                 except Exception as e:
                     errors.append(f"Erreur lors de la création de l'équipe '{num_equipe}': {str(e)}")
             
-            return Response({
-                'message': f'Successfully imported {len(created)} teams',
+            message = f'Successfully imported {len(created)} teams'
+            if skipped > 0:
+                message += f' ({skipped} doublon(s) ignoré(s))'
+            
+            response_data = {
+                'message': message,
                 'created': created,
                 'errors': errors
-            })
+            }
+            if duplicate_warning:
+                response_data['warnings'] = [duplicate_warning]
+            
+            return Response(response_data)
         else:
-            return Response({
+            response_data = {
                 'preview_rows': preview_rows,
                 'total_rows': len(preview_rows),
                 'errors': errors,
-                'commit': commit,
-                'message': 'Preview mode. Set commit=true to import.'
-            })
+                'commit': commit
+            }
+            if duplicate_warning:
+                response_data['warnings'] = [duplicate_warning]
+            return Response(response_data)
     
     except Exception as e:
         return Response({
@@ -456,6 +475,91 @@ def admin_ranking(request):
     # Sort by average score descending
     rankings.sort(key=lambda x: x['average_score'], reverse=True)
     
+    # Assign ranks with tie handling
+    # If teams have the same score, they get the same rank, and next rank skips
+    for i, team in enumerate(rankings):
+        # Convert to float for proper comparison
+        current_score = float(team['average_score'])
+        prev_score = float(rankings[i-1]['average_score']) if i > 0 else None
+        
+        if i > 0 and current_score == prev_score:
+            # Same score as previous team, use same rank
+            team['rank'] = rankings[i-1]['rank']
+        else:
+            # Different score, assign rank based on position (i+1)
+            team['rank'] = i + 1
+    
+    serializer = RankingSerializer(rankings, many=True)
+    return Response(serializer.data)
+
+
+@extend_schema(
+    tags=['Public'],
+    summary='Get public ranking',
+    description='Get aggregated ranking with weighted averages (public, no auth required).',
+    responses={200: RankingSerializer(many=True)}
+)
+@api_view(['GET'])
+@permission_classes([])  # No authentication required
+@authentication_classes([])  # No authentication required
+def public_ranking(request):
+    """Get aggregated ranking for public display (no authentication required)"""
+    # Get all teams with their evaluations
+    teams = Team.objects.all()
+    
+    rankings = []
+    for team in teams:
+        evaluations = Evaluation.objects.filter(team=team)
+        
+        if not evaluations.exists():
+            continue
+        
+        # Calculate average total score
+        avg_score = evaluations.aggregate(avg=Avg('total'))['avg'] or 0
+        
+        # Calculate criterion breakdown
+        criterion_breakdown = {}
+        for criterion in Criterion.objects.all():
+            criterion_scores = []
+            for eval in evaluations:
+                # Try to find score for this criterion in the scores JSON
+                criterion_key = criterion.name.lower().replace(' ', '_').replace('&', '')
+                for key, score_data in eval.scores.items():
+                    key_normalized = key.lower().replace(' ', '_').replace('&', '')
+                    if criterion_key in key_normalized or key_normalized in criterion_key:
+                        if isinstance(score_data, dict) and 'score' in score_data:
+                            criterion_scores.append(float(score_data['score']))
+            
+            if criterion_scores:
+                criterion_breakdown[criterion.name] = {
+                    'average': sum(criterion_scores) / len(criterion_scores),
+                    'count': len(criterion_scores)
+                }
+        
+        rankings.append({
+            'num_equipe': team.num_equipe,
+            'nom_equipe': team.nom_equipe,
+            'average_score': round(Decimal(avg_score), 2),
+            'total_evaluations': evaluations.count(),
+            'criterion_breakdown': criterion_breakdown,
+        })
+    
+    # Sort by average score descending
+    rankings.sort(key=lambda x: x['average_score'], reverse=True)
+    
+    # Assign ranks with tie handling
+    for i, team in enumerate(rankings):
+        # Convert to float for proper comparison
+        current_score = float(team['average_score'])
+        prev_score = float(rankings[i-1]['average_score']) if i > 0 else None
+        
+        if i > 0 and current_score == prev_score:
+            # Same score as previous team, use same rank
+            team['rank'] = rankings[i-1]['rank']
+        else:
+            # Different score, assign rank based on position (i+1)
+            team['rank'] = i + 1
+    
     serializer = RankingSerializer(rankings, many=True)
     return Response(serializer.data)
 
@@ -466,6 +570,42 @@ def admin_ranking(request):
     description='Export all evaluations as CSV file with new format: one row per team with all judge evaluations',
     responses={200: {'description': 'CSV file download'}}
 )
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def announce_winner(request):
+    """Admin endpoint to trigger winner announcement via WebSocket"""
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+    
+    place = request.data.get('place')  # 1, 2, 3, or 0 for reset
+    action = request.data.get('action', 'start_animation')  # 'start_animation', 'reveal', or 'reset'
+    
+    if place not in [0, 1, 2, 3]:
+        return Response({'error': 'Invalid place. Must be 0 (reset), 1, 2, or 3'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    channel_layer = get_channel_layer()
+    if channel_layer:
+        async_to_sync(channel_layer.group_send)(
+            'winners_announcements',
+            {
+                'type': 'winner_announcement',
+                'place': place,
+                'action': action,
+            }
+        )
+    
+    if place == 0:
+        message = 'Reset announcement sent'
+    else:
+        message = f'Winner announcement sent for {place} place'
+    
+    return Response({
+        'message': message,
+        'place': place,
+        'action': action
+    })
+
+
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def export_csv(request):
@@ -623,6 +763,18 @@ class AdminLoginView(views.APIView):
             return Response({
                 'error': f'Login failed: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@method_decorator(csrf_protect, name='dispatch')
+class AdminLogoutView(views.APIView):
+    """Admin logout endpoint - destroys session"""
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAdminUser]
+    
+    def post(self, request):
+        from django.contrib.auth import logout
+        logout(request)
+        return Response({'message': 'Logout successful'}, status=status.HTTP_200_OK)
 
 
 # Judge endpoints

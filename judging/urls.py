@@ -14,12 +14,17 @@ urlpatterns = [
     
     # Admin endpoints
     path('admin/login/', views.AdminLoginView.as_view(), name='admin-login'),
+    path('admin/logout/', views.AdminLogoutView.as_view(), name='admin-logout'),
     path('admin/create-judge/', views.create_judge, name='create-judge'),
     path('admin/regenerate-token/<int:judge_id>/', views.regenerate_judge_token, name='regenerate-token'),
     path('admin/upload-teams/', views.upload_teams, name='upload-teams'),
     path('admin/ranking/', views.admin_ranking, name='admin-ranking'),
+    path('admin/announce-winner/', views.announce_winner, name='announce-winner'),
     path('admin/export/csv/', views.export_csv, name='export-csv'),
     path('admin/export/pdf/', views.export_pdf, name='export-pdf'),
+    
+    # Public endpoints
+    path('public/ranking/', views.public_ranking, name='public-ranking'),
     
     # Judge endpoints
     path('judge/login/', views.JudgeLoginView.as_view(), name='judge-login'),

@@ -125,4 +125,56 @@ class RankingConsumer(AsyncWebsocketConsumer):
         # Sort by average score descending
         rankings.sort(key=lambda x: float(x['average_score']), reverse=True)
         
+        # Assign ranks with tie handling
+        for i, team in enumerate(rankings):
+            # Convert to float for proper comparison
+            current_score = float(team['average_score'])
+            prev_score = float(rankings[i-1]['average_score']) if i > 0 else None
+            
+            if i > 0 and current_score == prev_score:
+                # Same score as previous team, use same rank
+                team['rank'] = rankings[i-1]['rank']
+            else:
+                # Different score, assign rank based on position (i+1)
+                team['rank'] = i + 1
+        
         return rankings
+
+
+class WinnersConsumer(AsyncWebsocketConsumer):
+    """WebSocket consumer for real-time winners announcements"""
+    
+    async def connect(self):
+        """Join winners_announcements group (no auth required for public)"""
+        logger.info("Winners WebSocket connection attempt")
+        self.group_name = 'winners_announcements'
+        
+        await self.channel_layer.group_add(
+            self.group_name,
+            self.channel_name
+        )
+        
+        await self.accept()
+        logger.info("Winners WebSocket connection accepted")
+    
+    async def disconnect(self, close_code):
+        """Leave winners_announcements group"""
+        logger.info(f"Winners WebSocket disconnected with code {close_code}")
+        await self.channel_layer.group_discard(
+            self.group_name,
+            self.channel_name
+        )
+    
+    async def receive(self, text_data):
+        """Handle messages from WebSocket client"""
+        logger.info(f"Received Winners WebSocket message: {text_data}")
+        # Public clients don't send messages, only receive
+    
+    async def winner_announcement(self, event):
+        """Handle winner_announcement event from channel layer"""
+        logger.info(f"Winner announcement event received: {event}")
+        await self.send(text_data=json.dumps({
+            'type': 'winner_announcement',
+            'place': event.get('place'),
+            'action': event.get('action'),  # 'start_animation', 'reveal'
+        }))
