@@ -127,16 +127,15 @@ class RankingConsumer(AsyncWebsocketConsumer):
         
         # Assign ranks with tie handling
         for i, team in enumerate(rankings):
-            # Convert to float for proper comparison
             current_score = float(team['average_score'])
             prev_score = float(rankings[i-1]['average_score']) if i > 0 else None
             
-            if i > 0 and current_score == prev_score:
-                # Same score as previous team, use same rank
+            if i == 0:
+                team['rank'] = 1
+            elif current_score == prev_score:
                 team['rank'] = rankings[i-1]['rank']
             else:
-                # Different score, assign rank based on position (i+1)
-                team['rank'] = i + 1
+                team['rank'] = rankings[i-1]['rank'] + 1
         
         return rankings
 
